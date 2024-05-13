@@ -6,30 +6,37 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.widget.Toast;
-import androidx.appcompat.widget.Toolbar;
 
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
 
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationView;
 
 public class MainActivity extends AppCompatActivity {
-
     DrawerLayout drawerLayout;
-    Toolbar toolbar;
+     Toolbar toolbar;
     NavigationView navigationView;
     private static final int REQUEST_IMAGE_CAPTURE = 1;
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 100;
+
+
+    private BottomNavigationView bottomNavigationView;
+    private FragmentManager fragmentManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
         toolbar = findViewById(R.id.toolbar);
         drawerLayout = findViewById(R.id.drawerLayout);
         navigationView = findViewById(R.id.nav);
@@ -37,7 +44,28 @@ public class MainActivity extends AppCompatActivity {
         drawerLayout.addDrawerListener(toggle);
         toggle.syncState();
 
-        toggle.getDrawerArrowDrawable().setColor(getResources().getColor(R.color.white));
+        fragmentManager = getSupportFragmentManager();
+        bottomNavigationView = findViewById(R.id.bottom_navigation);
+
+        // Replace the fragment with CameraFragment when the activity is created
+        Fragment cameraFragment = new CameraFragment();
+        fragmentManager.beginTransaction().replace(R.id.frameLayout, cameraFragment).commit();
+
+        bottomNavigationView.setOnNavigationItemSelectedListener(item -> {
+            Fragment fragment = null;
+            if (item.getItemId() == R.id.menu_camera) {
+                fragment = new CameraFragment();
+            } else if (item.getItemId() == R.id.menu_gallery) {
+                fragment = new GalleryFragment();
+            }
+
+            if (fragment != null) {
+                fragmentManager.beginTransaction().replace(R.id.frameLayout, fragment).commit();
+                return true;
+            }
+            return false;
+        });
+
         // Request camera permission if not granted
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
