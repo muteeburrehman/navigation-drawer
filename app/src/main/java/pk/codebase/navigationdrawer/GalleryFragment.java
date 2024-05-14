@@ -25,6 +25,7 @@ import java.util.List;
 public class GalleryFragment extends Fragment {
 
     private GridView gridView;
+    private List<File> imageFiles;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -40,8 +41,8 @@ public class GalleryFragment extends Fragment {
     }
 
     private void loadImages() {
-        // Create a directory named "cryptography" in internal storage
-        File directory = new File(requireContext().getFilesDir(), "cryptography");
+        // Create a directory named "cryptology" in internal storage
+        File directory = new File(requireContext().getFilesDir(), "cryptology");
         if (!directory.exists()) {
             if (!directory.mkdirs()) {
                 Toast.makeText(requireContext(), "Failed to create directory", Toast.LENGTH_SHORT).show();
@@ -49,61 +50,43 @@ public class GalleryFragment extends Fragment {
             }
         }
 
-        // Retrieve image files from the "cryptography" directory
+        // Retrieve image files from the "cryptology" directory
+        imageFiles = new ArrayList<>();
         File[] files = directory.listFiles();
-
-        // Create a list to hold file paths of images
-        List<byte[]> imageBytesList = new ArrayList<>();
 
         if (files != null) {
             for (File file : files) {
-                // Read image bytes from file
-                byte[] imageBytes = readFileBytes(file);
-                if (imageBytes != null) {
-                    // Add image bytes to the list
-                    imageBytesList.add(imageBytes);
+                if (file.isFile()) {
+                    // Add image files to the list
+                    imageFiles.add(file);
                 }
             }
         }
 
         // Create custom adapter and set it to GridView
-        ImageAdapter adapter = new ImageAdapter(requireContext(), imageBytesList);
+        ImageAdapter adapter = new ImageAdapter(requireContext(), imageFiles);
         gridView.setAdapter(adapter);
-    }
-
-    // Read bytes from file
-    private byte[] readFileBytes(File file) {
-        try {
-            FileInputStream fis = new FileInputStream(file);
-            byte[] buffer = new byte[(int) file.length()];
-            fis.read(buffer);
-            fis.close();
-            return buffer;
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null;
-        }
     }
 
     // Custom adapter for displaying images in GridView
     private static class ImageAdapter extends BaseAdapter {
 
-        private List<byte[]> imageBytesList;
-        private LayoutInflater inflater;
+        private Context context;
+        private List<File> imageFiles;
 
-        ImageAdapter(Context context, List<byte[]> imageBytesList) {
-            this.imageBytesList = imageBytesList;
-            this.inflater = LayoutInflater.from(context);
+        ImageAdapter(Context context, List<File> imageFiles) {
+            this.context = context;
+            this.imageFiles = imageFiles;
         }
 
         @Override
         public int getCount() {
-            return imageBytesList.size();
+            return imageFiles.size();
         }
 
         @Override
         public Object getItem(int position) {
-            return imageBytesList.get(position);
+            return imageFiles.get(position);
         }
 
         @Override
@@ -115,7 +98,7 @@ public class GalleryFragment extends Fragment {
         public View getView(int position, View convertView, ViewGroup parent) {
             ViewHolder holder;
             if (convertView == null) {
-                convertView = inflater.inflate(R.layout.gallery_item, parent, false);
+                convertView = LayoutInflater.from(context).inflate(R.layout.gallery_item, parent, false);
                 holder = new ViewHolder();
                 holder.imageView = convertView.findViewById(R.id.imageView);
                 convertView.setTag(holder);
@@ -123,11 +106,12 @@ public class GalleryFragment extends Fragment {
                 holder = (ViewHolder) convertView.getTag();
             }
 
-            // Convert byte array to Bitmap
-            byte[] imageBytes = imageBytesList.get(position);
-            Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
-            // Set Bitmap to ImageView
-            holder.imageView.setImageBitmap(bitmap);
+            // Decode image file into Bitmap
+            File imageFile = imageFiles.get(position);
+            Bitmap bitmap = decodeFile(imageFile);
+            if (bitmap != null) {
+                holder.imageView.setImageBitmap(bitmap);
+            }
 
             return convertView;
         }
@@ -135,6 +119,19 @@ public class GalleryFragment extends Fragment {
         // ViewHolder pattern for better GridView performance
         private static class ViewHolder {
             ImageView imageView;
+        }
+
+        // Decode image file into Bitmap
+        private Bitmap decodeFile(File imageFile) {
+            try {
+                FileInputStream fis = new FileInputStream(imageFile);
+                Bitmap bitmap = BitmapFactory.decodeStream(fis);
+                fis.close();
+                return bitmap;
+            } catch (IOException e) {
+                e.printStackTrace();
+                return null;
+            }
         }
     }
 }

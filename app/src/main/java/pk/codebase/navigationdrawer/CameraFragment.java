@@ -89,8 +89,8 @@ public class CameraFragment extends Fragment {
             Bitmap bitmap = (Bitmap) data.getExtras().get("data");
             // Convert Bitmap to byte array
             byte[] imageData = bitmapToByteArray(bitmap);
-            // Save the image byte array
-            saveImage(imageData);
+            // Save the image byte array to a file
+            saveImageToFile(imageData);
         }
     }
 
@@ -100,9 +100,9 @@ public class CameraFragment extends Fragment {
         return baos.toByteArray();
     }
 
-    private void saveImage(byte[] data) {
-        // Create a directory named "cryptography" in internal storage
-        File directory = new File(requireContext().getFilesDir(), "cryptography");
+    private void saveImageToFile(byte[] data) {
+        // Create a directory named "cryptology" in internal storage
+        File directory = new File(requireContext().getFilesDir(), "cryptology");
         if (!directory.exists()) {
             if (!directory.mkdirs()) {
                 Toast.makeText(requireContext(), "Failed to create directory", Toast.LENGTH_SHORT).show();
@@ -111,7 +111,7 @@ public class CameraFragment extends Fragment {
         }
 
         // Generate a unique file name
-        String fileName = "image_" + System.currentTimeMillis() + ".png";
+        String fileName = "image_" + System.currentTimeMillis() + ".dat";
 
         // Create a new file
         File file = new File(directory, fileName);
