@@ -1,8 +1,9 @@
 package pk.codebase.navigationdrawer;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -25,6 +26,7 @@ import java.io.IOException;
 public class CameraFragment extends Fragment {
 
     private static final int REQUEST_IMAGE_CAPTURE = 201;
+    private static final int REQUEST_CAMERA_PERMISSION = 101;
 
     private Button captureButton;
 
@@ -43,6 +45,34 @@ public class CameraFragment extends Fragment {
     }
 
     private void dispatchTakePictureIntent() {
+        // Check if the camera permission is granted
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            // If not granted, request the permission
+            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQUEST_CAMERA_PERMISSION);
+        } else {
+            // If permission is granted, start the camera activity
+            startCamera();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_CAMERA_PERMISSION) {
+            // Check if the permission is granted
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // If permission is granted, start the camera activity
+                startCamera();
+            } else {
+                // If permission is denied, show a message to the user
+                Toast.makeText(requireContext(), "Camera permission denied", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private void startCamera() {
+        // Create intent to capture image
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         if (takePictureIntent.resolveActivity(requireActivity().getPackageManager()) != null) {
             startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
