@@ -53,39 +53,57 @@ public class GalleryFragment extends Fragment {
         File[] files = directory.listFiles();
 
         // Create a list to hold file paths of images
-        List<String> imagePaths = new ArrayList<>();
+        List<byte[]> imageBytesList = new ArrayList<>();
 
         if (files != null) {
             for (File file : files) {
-                // Add file paths to the list
-                imagePaths.add(file.getAbsolutePath());
+                // Read image bytes from file
+                byte[] imageBytes = readFileBytes(file);
+                if (imageBytes != null) {
+                    // Add image bytes to the list
+                    imageBytesList.add(imageBytes);
+                }
             }
         }
 
         // Create custom adapter and set it to GridView
-        ImageAdapter adapter = new ImageAdapter(requireContext(), imagePaths);
+        ImageAdapter adapter = new ImageAdapter(requireContext(), imageBytesList);
         gridView.setAdapter(adapter);
+    }
+
+    // Read bytes from file
+    private byte[] readFileBytes(File file) {
+        try {
+            FileInputStream fis = new FileInputStream(file);
+            byte[] buffer = new byte[(int) file.length()];
+            fis.read(buffer);
+            fis.close();
+            return buffer;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     // Custom adapter for displaying images in GridView
     private static class ImageAdapter extends BaseAdapter {
 
-        private Context context;
-        private List<String> imagePaths;
+        private List<byte[]> imageBytesList;
+        private LayoutInflater inflater;
 
-        ImageAdapter(Context context, List<String> imagePaths) {
-            this.context = context;
-            this.imagePaths = imagePaths;
+        ImageAdapter(Context context, List<byte[]> imageBytesList) {
+            this.imageBytesList = imageBytesList;
+            this.inflater = LayoutInflater.from(context);
         }
 
         @Override
         public int getCount() {
-            return imagePaths.size();
+            return imageBytesList.size();
         }
 
         @Override
         public Object getItem(int position) {
-            return imagePaths.get(position);
+            return imageBytesList.get(position);
         }
 
         @Override
@@ -97,7 +115,7 @@ public class GalleryFragment extends Fragment {
         public View getView(int position, View convertView, ViewGroup parent) {
             ViewHolder holder;
             if (convertView == null) {
-                convertView = LayoutInflater.from(context).inflate(R.layout.gallery_item, parent, false);
+                convertView = inflater.inflate(R.layout.gallery_item, parent, false);
                 holder = new ViewHolder();
                 holder.imageView = convertView.findViewById(R.id.imageView);
                 convertView.setTag(holder);
@@ -105,24 +123,13 @@ public class GalleryFragment extends Fragment {
                 holder = (ViewHolder) convertView.getTag();
             }
 
-            // Load image into ImageView using BitmapFactory
-            Bitmap bitmap = loadImageFromFile(imagePaths.get(position));
-            if (bitmap != null) {
-                holder.imageView.setImageBitmap(bitmap);
-            }
+            // Convert byte array to Bitmap
+            byte[] imageBytes = imageBytesList.get(position);
+            Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+            // Set Bitmap to ImageView
+            holder.imageView.setImageBitmap(bitmap);
 
             return convertView;
-        }
-
-        // Load Bitmap object from file
-        private Bitmap loadImageFromFile(String filePath) {
-            try {
-                FileInputStream fis = new FileInputStream(filePath);
-                return BitmapFactory.decodeFile(filePath);
-            } catch (IOException e) {
-                e.printStackTrace();
-                return null;
-            }
         }
 
         // ViewHolder pattern for better GridView performance
