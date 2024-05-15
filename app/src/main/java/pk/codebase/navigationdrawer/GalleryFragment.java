@@ -1,9 +1,15 @@
 package pk.codebase.navigationdrawer;
 
+import static io.xconn.cryptology.SealedBox.sealOpen;
+import static pk.codebase.navigationdrawer.MainActivity.PREF_PRIVATE_KEY;
+import static pk.codebase.navigationdrawer.MainActivity.PREF_PUBLIC_KEY;
+
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -19,13 +25,22 @@ import androidx.fragment.app.Fragment;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyFactory;
+import java.security.PrivateKey;
+import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.List;
+
+
+
+import javax.crypto.Cipher;
 
 public class GalleryFragment extends Fragment {
 
     private GridView gridView;
     private List<File> imageFiles;
+    private byte[] privateKey;
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -37,7 +52,19 @@ public class GalleryFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        loadPrivateKey();
         loadImages();
+    }
+
+    private void loadPrivateKey() {
+        // Retrieve the private key from SharedPreferences
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(requireContext());
+        String privateKeyString = sharedPreferences.getString("private_key", null);
+        if (privateKeyString != null) {
+            privateKey = privateKeyString.getBytes(StandardCharsets.UTF_8);
+        } else {
+            Toast.makeText(requireContext(), "Private key not found", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void loadImages() {
@@ -77,6 +104,7 @@ public class GalleryFragment extends Fragment {
         ImageAdapter(Context context, List<File> imageFiles) {
             this.context = context;
             this.imageFiles = imageFiles;
+
         }
 
         @Override
@@ -106,13 +134,13 @@ public class GalleryFragment extends Fragment {
                 holder = (ViewHolder) convertView.getTag();
             }
 
-            // Decode image file into Bitmap
+            // Decode and decrypt image file into Bitmap
             File imageFile = imageFiles.get(position);
-            Bitmap bitmap = decodeFile(imageFile);
+            Bitmap bitmap = decryptImageData(imageFile);
             if (bitmap != null) {
                 holder.imageView.setImageBitmap(bitmap);
             }
-
+             System.out.println("----"+ bitmap);
             return convertView;
         }
 
@@ -121,17 +149,32 @@ public class GalleryFragment extends Fragment {
             ImageView imageView;
         }
 
-        // Decode image file into Bitmap
-        private Bitmap decodeFile(File imageFile) {
+        // Decrypt image file into Bitmap
+        private Bitmap decryptImageData(File imageFile) {
             try {
                 FileInputStream fis = new FileInputStream(imageFile);
-                Bitmap bitmap = BitmapFactory.decodeStream(fis);
+                byte[] encryptedData = new byte[(int) imageFile.length()];
+                fis.read(encryptedData);
                 fis.close();
-                return bitmap;
+
+                // Decrypt the encrypted image data using the private key
+                byte[] decryptedData = sealOpen(encryptedData, getPrivateKey(context));
+                System.out.println("----------- "+ decryptedData);
+                // Convert decrypted data to Bitmap
+                return BitmapFactory.decodeByteArray(decryptedData, 0, decryptedData.length);
+
             } catch (IOException e) {
                 e.printStackTrace();
                 return null;
             }
         }
+
+        private byte[] getPrivateKey(Context context) {
+            SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+            String privateKeyString = sharedPreferences.getString(PREF_PRIVATE_KEY, "");
+            System.out.println("-----------" + privateKeyString.getBytes(StandardCharsets.UTF_8));
+            return privateKeyString.getBytes(StandardCharsets.UTF_8);
+        }
+
     }
 }
