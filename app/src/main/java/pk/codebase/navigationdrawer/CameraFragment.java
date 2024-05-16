@@ -1,6 +1,10 @@
 package pk.codebase.navigationdrawer;
 
+import static android.security.KeyChain.getPrivateKey;
+import static io.xconn.cryptology.SealedBox.seal;
+import static pk.codebase.navigationdrawer.MainActivity.PREF_PRIVATE_KEY;
 import static pk.codebase.navigationdrawer.MainActivity.PREF_PUBLIC_KEY;
+import static pk.codebase.navigationdrawer.MainActivity.bytesToHex;
 
 import android.Manifest;
 import android.content.Context;
@@ -8,9 +12,10 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.provider.MediaStore;
-import android.util.Base64;
+
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -31,14 +36,15 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.security.PublicKey;
 
 public class CameraFragment extends Fragment {
 
     private static final int REQUEST_IMAGE_CAPTURE = 201;
     private static final int REQUEST_CAMERA_PERMISSION = 101;
 
-    private byte[] recipientPublicKey;
 
     @Nullable
     @Override
@@ -89,8 +95,37 @@ public class CameraFragment extends Fragment {
             Bitmap bitmap = (Bitmap) data.getExtras().get("data");
             byte[] imageData = bitmapToByteArray(bitmap);
 
-            byte[] encryptedImageData = seal(imageData, setRecipientPublicKeyFromSharedPreferences(requireContext()));
+//            KeyPair keypair = SealedBox.generateKeyPair();
+//            System.out.println("---------------" + new String(keypair.getPublicKey()));
+//            System.out.println("-------------pri----" + new String(keypair.getPrivateKey()));
+            byte[] encryptedImageData = SealedBox.seal(imageData, getPublicKey(requireContext()));
             saveImageToFile(encryptedImageData);
+            // Encrypt a message using the public key
+//           String message = "Hello, World!";
+//           byte[] encryption = SealedBox.seal(message.getBytes(), keypair.getPublicKey());
+//            // Decrypt the message using the private key
+//           byte[] decryption = SealedBox.sealOpen(encryption, keypair.getPrivateKey());
+//            // Convert decrypted bytes back to string
+//            String decryptedMessage = new String(decryption);
+//
+//            System.out.println("----Original message: "+ message);
+//            System.out.println("---Encrypted message: " + bytesToHex(encryption) );
+//            System.out.println("---Decrypted message: "+ decryptedMessage);
+
+
+
+
+
+
+
+
+            // Decrypt the encrypted image data using the private key
+            byte[] decryptedData = SealedBox.sealOpen(encryptedImageData, getPrivateKey(requireContext()));
+
+            // Convert decrypted data to Bitmap
+//            return BitmapFactory.decodeByteArray(decryptedData, 0, decryptedData.length);
+
+            System.out.println("*******" + decryptedData);
 
         }
     }
@@ -101,14 +136,23 @@ public class CameraFragment extends Fragment {
         return baos.toByteArray();
     }
 
-    private byte[] seal(byte[] data, byte[] recipientPublicKey) {
-        try {
-            // Seal (encrypt) the data using the recipient's public key
-            return SealedBox.seal(data, recipientPublicKey);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
+    // Function to convert hexadecimal string to bytes
+    public static byte[] hexToBytes(String hexString) {
+        int len = hexString.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(hexString.charAt(i), 16) << 4)
+                    + Character.digit(hexString.charAt(i + 1), 16));
         }
+        return data;
+    }
+    // Function to convert bytes to hexadecimal string
+    public static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02X", b));
+        }
+        return sb.toString();
     }
 
     private void saveImageToFile(byte[] data) {
@@ -143,10 +187,18 @@ public class CameraFragment extends Fragment {
         }
     }
 
-    private byte[] setRecipientPublicKeyFromSharedPreferences(Context context) {
+    private byte[] getPublicKey(Context context) {
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
         String publicKeyString = sharedPreferences.getString(PREF_PUBLIC_KEY, "");
 
-        return publicKeyString.getBytes(StandardCharsets.UTF_8);
+        System.out.println("------------aaaaaaa-------------"+ publicKeyString);
+        return hexToBytes(publicKeyString);
+    }
+
+    private byte[] getPrivateKey(Context context) {
+        SharedPreferences sharedPreferences = android.preference.PreferenceManager.getDefaultSharedPreferences(context);
+        String privateKeyString = sharedPreferences.getString(PREF_PRIVATE_KEY, "");
+        System.out.println("-------------bbbbbb---------------"+privateKeyString);
+        return hexToBytes(privateKeyString);
     }
 }

@@ -5,6 +5,7 @@ import static io.xconn.cryptology.SealedBox.sealOpen;
 
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
@@ -40,20 +41,39 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+
+        KeyPair keyPair2 = SealedBox.generateKeyPair();
+
+        System.out.println("----------Muteeeb-----" + bytesToHex(keyPair2.getPublicKey()));
+
+
         // Retrieve saved keys if they exist
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
         String publicKey = sharedPreferences.getString(PREF_PUBLIC_KEY, null);
         String privateKey = sharedPreferences.getString(PREF_PRIVATE_KEY, null);
 
+        Log.e("publickey", publicKey + " ,.,.");
+        Log.e("privatekey", privateKey + " ,.,.");
         // Generate keys if not already saved
         if (publicKey == null || privateKey == null) {
             KeyPair keyPair = SealedBox.generateKeyPair();
-            publicKey = new String(keyPair.getPublicKey(), StandardCharsets.UTF_8);
-            privateKey = new String(keyPair.getPrivateKey(), StandardCharsets.UTF_8);
+            publicKey = bytesToHex(keyPair.getPublicKey());
+            privateKey = bytesToHex(keyPair.getPrivateKey());
 
+            System.out.println("----------------------------publik-----" + publicKey);
+            System.out.println("----------------------------private-----" + publicKey);
             // Save the keys in shared preferences
             saveKeysInPreferences(publicKey, privateKey);
         }
+
+        // To save a word
+        TestSharedPreferences.saveWord(getApplicationContext(), "Hello");
+
+        // To retrieve the saved word
+        String savedWord = TestSharedPreferences.getWord(getApplicationContext());
+        System.out.println("-----Saved word: " + savedWord);
+
+        Log.d("----", "onCreate: " + savedWord);
 
 
         KeyPair keyPair1 = SealedBox.generateKeyPair();
@@ -104,5 +124,13 @@ public class MainActivity extends AppCompatActivity {
         editor.putString(PREF_PUBLIC_KEY, publicKey);
         editor.putString(PREF_PRIVATE_KEY, privateKey);
         editor.apply();
+    }
+
+    public static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02X", b));
+        }
+        return sb.toString();
     }
 }

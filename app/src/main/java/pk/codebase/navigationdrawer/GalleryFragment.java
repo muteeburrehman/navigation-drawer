@@ -36,6 +36,8 @@ import java.util.List;
 
 import javax.crypto.Cipher;
 
+import io.xconn.cryptology.SealedBox;
+
 public class GalleryFragment extends Fragment {
 
     private GridView gridView;
@@ -140,7 +142,7 @@ public class GalleryFragment extends Fragment {
             if (bitmap != null) {
                 holder.imageView.setImageBitmap(bitmap);
             }
-             System.out.println("----"+ bitmap);
+
             return convertView;
         }
 
@@ -158,11 +160,10 @@ public class GalleryFragment extends Fragment {
                 fis.close();
 
                 // Decrypt the encrypted image data using the private key
-                byte[] decryptedData = sealOpen(encryptedData, getPrivateKey(context));
-                System.out.println("----------- "+ decryptedData);
+                byte[] decryptedData = SealedBox.sealOpen(encryptedData, getPrivateKey(context));
+
                 // Convert decrypted data to Bitmap
                 return BitmapFactory.decodeByteArray(decryptedData, 0, decryptedData.length);
-
             } catch (IOException e) {
                 e.printStackTrace();
                 return null;
@@ -172,8 +173,18 @@ public class GalleryFragment extends Fragment {
         private byte[] getPrivateKey(Context context) {
             SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
             String privateKeyString = sharedPreferences.getString(PREF_PRIVATE_KEY, "");
-            System.out.println("-----------" + privateKeyString.getBytes(StandardCharsets.UTF_8));
-            return privateKeyString.getBytes(StandardCharsets.UTF_8);
+            System.out.println("-----bNfs------" + privateKeyString.getBytes(StandardCharsets.UTF_8));
+            return hexToBytes(privateKeyString);
+        }
+
+        public static byte[] hexToBytes(String hexString) {
+            int len = hexString.length();
+            byte[] data = new byte[len / 2];
+            for (int i = 0; i < len; i += 2) {
+                data[i / 2] = (byte) ((Character.digit(hexString.charAt(i), 16) << 4)
+                        + Character.digit(hexString.charAt(i + 1), 16));
+            }
+            return data;
         }
 
     }

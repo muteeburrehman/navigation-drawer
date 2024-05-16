@@ -15,5 +15,6 @@ public class GalleryActivity extends AppCompatActivity {
         ImageView imageView = findViewById(R.id.imageView);
         // Load the image from file and set it to the ImageView
         // Implement this part based on how you saved the image bytes to a file
+
     }
 }
