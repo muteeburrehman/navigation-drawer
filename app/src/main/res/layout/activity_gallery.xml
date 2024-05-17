@@ -6,13 +6,11 @@
     android:layout_height="match_parent"
     tools:context=".GalleryActivity">
 
-    <!-- You can customize the layout as per your requirements -->
-    <!-- For example, you can add an ImageView to display the captured image -->
-
     <ImageView
         android:id="@+id/imageView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:scaleType="centerCrop"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

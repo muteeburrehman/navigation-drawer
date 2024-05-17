@@ -4,7 +4,7 @@ import static android.security.KeyChain.getPrivateKey;
 import static io.xconn.cryptology.SealedBox.seal;
 import static pk.codebase.navigationdrawer.MainActivity.PREF_PRIVATE_KEY;
 import static pk.codebase.navigationdrawer.MainActivity.PREF_PUBLIC_KEY;
-import static pk.codebase.navigationdrawer.MainActivity.bytesToHex;
+
 
 import android.Manifest;
 import android.content.Context;
@@ -25,6 +25,7 @@ import android.widget.Toast;
 import io.xconn.cryptology.CryptoSign;
 import io.xconn.cryptology.KeyPair;
 import io.xconn.cryptology.SealedBox;
+import pk.codebase.navigationdrawer.utils.App;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -39,12 +40,12 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.PublicKey;
-
+import static android.app.Activity.RESULT_OK;
 public class CameraFragment extends Fragment {
 
     private static final int REQUEST_IMAGE_CAPTURE = 201;
     private static final int REQUEST_CAMERA_PERMISSION = 101;
-
+    private static final int REQUEST_IMAGE_PICK = 202;
 
     @Nullable
     @Override
@@ -56,6 +57,7 @@ public class CameraFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         view.findViewById(R.id.button_capture).setOnClickListener(v -> dispatchTakePictureIntent());
+        view.findViewById(R.id.button_select_photo).setOnClickListener(v -> openGallery());
     }
 
     private void dispatchTakePictureIntent() {
@@ -65,6 +67,20 @@ public class CameraFragment extends Fragment {
         } else {
             startCamera();
         }
+    }
+
+    private void startCamera() {
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (takePictureIntent.resolveActivity(requireActivity().getPackageManager()) != null) {
+            startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+        } else {
+            Toast.makeText(requireContext(), "No camera app found", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void openGallery() {
+        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        startActivityForResult(intent, REQUEST_IMAGE_PICK);
     }
 
     @Override
@@ -79,56 +95,46 @@ public class CameraFragment extends Fragment {
         }
     }
 
-    private void startCamera() {
-        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        if (takePictureIntent.resolveActivity(requireActivity().getPackageManager()) != null) {
-            startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
-        } else {
-            Toast.makeText(requireContext(), "No camera app found", Toast.LENGTH_SHORT).show();
-        }
-    }
-
     @Override
     public void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == getActivity().RESULT_OK) {
-            Bitmap bitmap = (Bitmap) data.getExtras().get("data");
-            byte[] imageData = bitmapToByteArray(bitmap);
-
-//            KeyPair keypair = SealedBox.generateKeyPair();
-//            System.out.println("---------------" + new String(keypair.getPublicKey()));
-//            System.out.println("-------------pri----" + new String(keypair.getPrivateKey()));
-            byte[] encryptedImageData = SealedBox.seal(imageData, getPublicKey(requireContext()));
-            saveImageToFile(encryptedImageData);
-            // Encrypt a message using the public key
-//           String message = "Hello, World!";
-//           byte[] encryption = SealedBox.seal(message.getBytes(), keypair.getPublicKey());
-//            // Decrypt the message using the private key
-//           byte[] decryption = SealedBox.sealOpen(encryption, keypair.getPrivateKey());
-//            // Convert decrypted bytes back to string
-//            String decryptedMessage = new String(decryption);
-//
-//            System.out.println("----Original message: "+ message);
-//            System.out.println("---Encrypted message: " + bytesToHex(encryption) );
-//            System.out.println("---Decrypted message: "+ decryptedMessage);
-
-
-
-
-
-
-
-
-            // Decrypt the encrypted image data using the private key
-            byte[] decryptedData = SealedBox.sealOpen(encryptedImageData, getPrivateKey(requireContext()));
-
-            // Convert decrypted data to Bitmap
-//            return BitmapFactory.decodeByteArray(decryptedData, 0, decryptedData.length);
-
-            System.out.println("*******" + decryptedData);
-
+        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+            handleCameraResult(data);
+        } else if (requestCode == REQUEST_IMAGE_PICK && resultCode == RESULT_OK) {
+            handleGalleryResult(data);
         }
     }
+
+    private void handleCameraResult(@Nullable Intent data) {
+        Bitmap bitmap = (Bitmap) data.getExtras().get("data");
+        byte[] imageData = bitmapToByteArray(bitmap);
+
+        // Log the public key obtained from SharedPreferences
+        byte[] publicKey = App.getString("public_key").getBytes();
+        Log.d("PublicKey", "Public Key: " + bytesToHex(publicKey));
+
+        byte[] encryptedImageData = SealedBox.seal(imageData, publicKey);
+        saveImageToFile(encryptedImageData);
+    }
+
+    private void handleGalleryResult(@Nullable Intent data) {
+        try {
+            if (data != null && data.getData() != null) {
+                Bitmap bitmap = MediaStore.Images.Media.getBitmap(requireActivity().getContentResolver(), data.getData());
+                byte[] imageData = bitmapToByteArray(bitmap);
+
+                // Log the public key obtained from SharedPreferences
+                byte[] publicKey = App.getString("public_key").getBytes();
+                Log.d("PublicKey", "Public Key: " + bytesToHex(publicKey));
+
+                byte[] encryptedImageData = SealedBox.seal(imageData, publicKey);
+                saveImageToFile(encryptedImageData);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
 
     private byte[] bitmapToByteArray(Bitmap bitmap) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -146,6 +152,7 @@ public class CameraFragment extends Fragment {
         }
         return data;
     }
+
     // Function to convert bytes to hexadecimal string
     public static String bytesToHex(byte[] bytes) {
         StringBuilder sb = new StringBuilder();
@@ -187,18 +194,15 @@ public class CameraFragment extends Fragment {
         }
     }
 
-    private byte[] getPublicKey(Context context) {
-        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
-        String publicKeyString = sharedPreferences.getString(PREF_PUBLIC_KEY, "");
-
-        System.out.println("------------aaaaaaa-------------"+ publicKeyString);
-        return hexToBytes(publicKeyString);
-    }
-
-    private byte[] getPrivateKey(Context context) {
-        SharedPreferences sharedPreferences = android.preference.PreferenceManager.getDefaultSharedPreferences(context);
-        String privateKeyString = sharedPreferences.getString(PREF_PRIVATE_KEY, "");
-        System.out.println("-------------bbbbbb---------------"+privateKeyString);
-        return hexToBytes(privateKeyString);
-    }
+//    private byte[] getPublicKey(Context context) {
+//        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+//        String publicKeyString = sharedPreferences.getString(PREF_PUBLIC_KEY, "");
+//        return hexToBytes(publicKeyString);
+//    }
+//
+//    private byte[] getPrivateKey(Context context) {
+//        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+//        String privateKeyString = sharedPreferences.getString(PREF_PRIVATE_KEY, "");
+//        return hexToBytes(privateKeyString);
+//    }
 }

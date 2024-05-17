@@ -2,6 +2,7 @@ package pk.codebase.navigationdrawer;
 
 import static io.xconn.cryptology.SealedBox.seal;
 import static io.xconn.cryptology.SealedBox.sealOpen;
+import static pk.codebase.navigationdrawer.utils.App.saveBoolean;
 import static pk.codebase.navigationdrawer.utils.App.saveString;
 
 import android.app.Dialog;
@@ -25,10 +26,13 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationView;
 
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import io.xconn.cryptology.CryptoSign;
 import io.xconn.cryptology.KeyPair;
 import io.xconn.cryptology.SealedBox;
+import io.xconn.cryptology.SecretBox;
 import pk.codebase.navigationdrawer.utils.App;
 
 public class MainActivity extends AppCompatActivity {
@@ -57,28 +61,6 @@ public class MainActivity extends AppCompatActivity {
         // If dialog hasn't been shown previously, show it
         if (!isDialogShown) {
             showDialog();
-        }
-
-        KeyPair keyPair2 = SealedBox.generateKeyPair();
-
-        System.out.println("----------Muteeeb-----" + bytesToHex(keyPair2.getPublicKey()));
-
-        // Retrieve saved keys if they exist
-        String publicKey = sharedPreferences.getString(PREF_PUBLIC_KEY, null);
-        String privateKey = sharedPreferences.getString(PREF_PRIVATE_KEY, null);
-
-        Log.e("publickey", publicKey + " ,.,.");
-        Log.e("privatekey", privateKey + " ,.,.");
-        // Generate keys if not already saved
-        if (publicKey == null || privateKey == null) {
-            KeyPair keyPair = SealedBox.generateKeyPair();
-            publicKey = bytesToHex(keyPair.getPublicKey());
-            privateKey = bytesToHex(keyPair.getPrivateKey());
-
-            System.out.println("----------------------------publik-----" + publicKey);
-            System.out.println("----------------------------private-----" + privateKey);
-            // Save the keys in shared preferences
-            saveKeysInPreferences(publicKey, privateKey);
         }
 
         toolbar = findViewById(R.id.toolbar);
@@ -115,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
     private void showDialog() {
         dialog = new Dialog(MainActivity.this);
         dialog.setContentView(R.layout.custom_dialog_box);
-        dialog.getWindow().setLayout(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT);
+        dialog.getWindow().setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         dialog.setCancelable(false);
 
         // Initialize btnDialogOk button
@@ -135,27 +117,29 @@ public class MainActivity extends AppCompatActivity {
                     enterPasswordEditText.setError("Please enter a password");
                     enterPasswordEditText.requestFocus(); // Focus on the EditText to prompt user input
                 } else {
-                    // If the password is not empty, proceed
-                    // Save password to SharedPreferences
-                    saveString("key", enteredPassword);
+                    KeyPair keyPair = SealedBox.generateKeyPair();
+                    String publicKey = bytesToHex(keyPair.getPublicKey());
+                    saveString(PREF_PUBLIC_KEY, publicKey);
 
-                    System.out.println("----------hi-----");
+                    byte[] nonce = SecretBox.generateNonce();
+                    saveString("nonce", bytesToHex(nonce));
 
+                    byte[] encryptedPrivateKey = SecretBox.box(nonce, keyPair.getPrivateKey(), convertTo32Bytes(enteredPassword));
+
+
+                    saveString(PREF_PRIVATE_KEY, bytesToHex(encryptedPrivateKey));
                     // Dismiss the dialog
                     dialog.dismiss();
 
-                    // Set the flag to indicate dialog has been shown
-                    SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(MainActivity.this);
-                    SharedPreferences.Editor editor = sharedPreferences.edit();
-                    editor.putBoolean("isDialogShown", true);
-                    editor.apply();
+                    saveBoolean("isDialogShown", true);
 
-//                    Retrieve password
-                    String savedPassword = App.getString( "key");
+                    // Retrieve password
+                    String savedPassword = enteredPassword; // Use the entered password directly
                     System.out.println("------------- Saved Password: " + savedPassword);
                     Log.d("password", "My Password " + savedPassword);
                 }
             }
+
         });
 
 
@@ -171,6 +155,26 @@ public class MainActivity extends AppCompatActivity {
         editor.apply();
     }
 
+
+        public static byte[] convertTo32Bytes(String input) {
+            try {
+                MessageDigest digest = MessageDigest.getInstance("SHA-256");
+                byte[] hash = digest.digest(input.getBytes());
+
+                // If the hash is less than 32 bytes, we pad it with zeros
+                byte[] result = new byte[32];
+                if (hash.length >= 32) {
+                    System.arraycopy(hash, 0, result, 0, 32);
+                } else {
+                    System.arraycopy(hash, 0, result, 0, hash.length);
+                }
+
+                return result;
+            } catch (NoSuchAlgorithmException e) {
+                e.printStackTrace();
+                return null;
+            }
+        }
     public static String bytesToHex(byte[] bytes) {
         StringBuilder sb = new StringBuilder();
         for (byte b : bytes) {
