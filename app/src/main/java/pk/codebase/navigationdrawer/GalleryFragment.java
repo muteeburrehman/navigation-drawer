@@ -1,19 +1,16 @@
 package pk.codebase.navigationdrawer;
 
-import static io.xconn.cryptology.SealedBox.sealOpen;
-import static pk.codebase.navigationdrawer.MainActivity.PREF_PRIVATE_KEY;
-import static pk.codebase.navigationdrawer.MainActivity.PREF_PUBLIC_KEY;
+import static pk.codebase.navigationdrawer.MainActivity.bytesToHex;
 import static pk.codebase.navigationdrawer.MainActivity.convertTo32Bytes;
 
 import android.app.Dialog;
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.preference.PreferenceManager;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -31,28 +28,21 @@ import androidx.fragment.app.Fragment;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyFactory;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+
 import io.xconn.cryptology.SealedBox;
 import io.xconn.cryptology.SecretBox;
-
-
-import javax.crypto.Cipher;
-
-import io.xconn.cryptology.SealedBox;
 import pk.codebase.navigationdrawer.utils.App;
 
 public class GalleryFragment extends Fragment {
 
     private GridView gridView;
     private List<File> imageFiles;
-    private byte[] privateKey;
+    private static byte[] privateKey;
     private Dialog passwordDialog;
 
     @Override
@@ -72,7 +62,7 @@ public class GalleryFragment extends Fragment {
         passwordDialog = new Dialog(requireContext());
         passwordDialog.setContentView(R.layout.dialog_password);
         passwordDialog.getWindow().setLayout(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-//        passwordDialog.setCancelable(false);
+        passwordDialog.setCancelable(false);
 
         EditText passwordEditText = passwordDialog.findViewById(R.id.enterYourPassword);
         Button submitButton = passwordDialog.findViewById(R.id.submitButton);
@@ -91,20 +81,28 @@ public class GalleryFragment extends Fragment {
 
     private void decryptPrivateKey(String password) {
         // Retrieve the encrypted private key and nonce from SharedPreferences
+        String encryptedPrivateKeyHex = App.getString(App.PREF_PRIVATE_KEY);
+        String nonceHex = App.getString("nonce");
 
-         byte[] privateKey = App.getString("private_key").getBytes();
-         byte[] nonceKey = App.getString("nonce").getBytes();
+        Log.d("PrivateKeyHex", "Encrypted Private Key Hex: " + encryptedPrivateKeyHex);
+        Log.d("NonceHex", "Nonce Hex: " + nonceHex);
 
-        if (privateKey != null && nonceKey != null) {
-            byte[] encryptedPrivateKey = privateKey;
-            byte[] nonce = nonceKey;
+        if (!TextUtils.isEmpty(encryptedPrivateKeyHex) && !TextUtils.isEmpty(nonceHex)) {
+            byte[] encryptedPrivateKey = hexToBytes(encryptedPrivateKeyHex);
+            byte[] nonce = hexToBytes(nonceHex);
+
+            Log.d("PrivateKeyBytes", "Encrypted Private Key: " + Arrays.toString(encryptedPrivateKey));
+            Log.d("NonceBytes", "Nonce: " + Arrays.toString(nonce));
+
 
             // Decrypt the private key using the entered password and the stored nonce
-            byte[] decryptedPrivateKey = SecretBox.boxOpen(nonce, encryptedPrivateKey,  convertTo32Bytes(password));
+            byte[] decryptedPrivateKey = SecretBox.boxOpen(nonce, encryptedPrivateKey, convertTo32Bytes(password));
 
             if (decryptedPrivateKey != null) {
                 // Successfully decrypted the private key, proceed to load images
                 privateKey = decryptedPrivateKey;
+                System.out.println("----p----"+privateKey);
+                Log.d("DecryptedPrivateKey", "Decrypted Private Key: " + Arrays.toString(decryptedPrivateKey));
                 loadImages();
                 passwordDialog.dismiss();
             } else {
@@ -228,12 +226,27 @@ public class GalleryFragment extends Fragment {
                 fis.read(encryptedData);
                 fis.close();
 
-                // Decrypt the encrypted image data using the private key
-                byte[] decryptedData = SealedBox.sealOpen(encryptedData, hexToBytes(PREF_PRIVATE_KEY));
+                Log.d("EncryptedData", "Encrypted Data: " + Arrays.toString(encryptedData));
 
-                // Convert decrypted data to Bitmap
-                return BitmapFactory.decodeByteArray(decryptedData, 0, decryptedData.length);
+                System.out.println("-----------PrivateKey---" + bytesToHex(privateKey));
+                // Decrypt the encrypted image data using the private key
+                byte[] decryptedData = SealedBox.sealOpen(encryptedData, privateKey);
+
+                System.out.println("--------------------------" + decryptedData.toString());
+                if (decryptedData != null) {
+                    Log.d("DecryptedData", "Decrypted Data: " + bytesToHex(decryptedData));
+                    System.out.println("---------------d"+decryptedData);
+
+                    // Convert decrypted data to Bitmap
+                    return BitmapFactory.decodeByteArray(decryptedData, 0, decryptedData.length);
+                } else {
+                    Log.e("DecryptError", "Decryption failed, invalid data or key.");
+                    return null;
+                }
             } catch (IOException e) {
+                e.printStackTrace();
+                return null;
+            } catch (IllegalArgumentException e) {
                 e.printStackTrace();
                 return null;
             }
@@ -249,21 +262,18 @@ public class GalleryFragment extends Fragment {
         }
         return data;
     }
-    public static byte[] convertTo24Bytes(String input) {
+
+    public static byte[] convertTo32Bytes(String input) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(input.getBytes());
 
-            // Create a 24-byte array
-            byte[] result = new byte[24];
-            if (hash.length >= 24) {
-                System.arraycopy(hash, 0, result, 0, 24);
+            // If the hash is less than 32 bytes, we pad it with zeros
+            byte[] result = new byte[32];
+            if (hash.length >= 32) {
+                System.arraycopy(hash, 0, result, 0, 32);
             } else {
                 System.arraycopy(hash, 0, result, 0, hash.length);
-                // If hash is less than 24 bytes, pad the remaining bytes with zeros
-                for (int i = hash.length; i < 24; i++) {
-                    result[i] = 0;
-                }
             }
 
             return result;
@@ -272,5 +282,4 @@ public class GalleryFragment extends Fragment {
             return null;
         }
     }
-
 }

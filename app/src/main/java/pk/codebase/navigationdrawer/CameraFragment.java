@@ -1,46 +1,32 @@
 package pk.codebase.navigationdrawer;
 
-import static android.security.KeyChain.getPrivateKey;
-import static io.xconn.cryptology.SealedBox.seal;
-import static pk.codebase.navigationdrawer.MainActivity.PREF_PRIVATE_KEY;
-import static pk.codebase.navigationdrawer.MainActivity.PREF_PUBLIC_KEY;
-
+import static android.app.Activity.RESULT_OK;
 
 import android.Manifest;
-import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.provider.MediaStore;
-
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
-import io.xconn.cryptology.CryptoSign;
-import io.xconn.cryptology.KeyPair;
-import io.xconn.cryptology.SealedBox;
-import pk.codebase.navigationdrawer.utils.App;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
-import androidx.preference.PreferenceManager;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.security.PublicKey;
-import static android.app.Activity.RESULT_OK;
+
+import io.xconn.cryptology.SealedBox;
+import pk.codebase.navigationdrawer.utils.App;
+
 public class CameraFragment extends Fragment {
 
     private static final int REQUEST_IMAGE_CAPTURE = 201;
@@ -110,7 +96,7 @@ public class CameraFragment extends Fragment {
         byte[] imageData = bitmapToByteArray(bitmap);
 
         // Log the public key obtained from SharedPreferences
-        byte[] publicKey = App.getString("public_key").getBytes();
+        byte[] publicKey = hexToBytes(App.getString("public_key"));
         Log.d("PublicKey", "Public Key: " + bytesToHex(publicKey));
 
         byte[] encryptedImageData = SealedBox.seal(imageData, publicKey);
@@ -124,10 +110,11 @@ public class CameraFragment extends Fragment {
                 byte[] imageData = bitmapToByteArray(bitmap);
 
                 // Log the public key obtained from SharedPreferences
-                byte[] publicKey = App.getString("public_key").getBytes();
+                byte[] publicKey = hexToBytes(App.getString(App.PREF_PUBLIC_KEY));
                 Log.d("PublicKey", "Public Key: " + bytesToHex(publicKey));
 
                 byte[] encryptedImageData = SealedBox.seal(imageData, publicKey);
+
                 saveImageToFile(encryptedImageData);
             }
         } catch (IOException e) {
@@ -194,15 +181,5 @@ public class CameraFragment extends Fragment {
         }
     }
 
-//    private byte[] getPublicKey(Context context) {
-//        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
-//        String publicKeyString = sharedPreferences.getString(PREF_PUBLIC_KEY, "");
-//        return hexToBytes(publicKeyString);
-//    }
-//
-//    private byte[] getPrivateKey(Context context) {
-//        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
-//        String privateKeyString = sharedPreferences.getString(PREF_PRIVATE_KEY, "");
-//        return hexToBytes(privateKeyString);
-//    }
+
 }

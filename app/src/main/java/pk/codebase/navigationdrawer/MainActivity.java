@@ -1,12 +1,12 @@
 package pk.codebase.navigationdrawer;
 
-import static io.xconn.cryptology.SealedBox.seal;
-import static io.xconn.cryptology.SealedBox.sealOpen;
+import static pk.codebase.navigationdrawer.CameraFragment.hexToBytes;
+import static pk.codebase.navigationdrawer.utils.App.PREF_PRIVATE_KEY;
+import static pk.codebase.navigationdrawer.utils.App.PREF_PUBLIC_KEY;
 import static pk.codebase.navigationdrawer.utils.App.saveBoolean;
 import static pk.codebase.navigationdrawer.utils.App.saveString;
 
 import android.app.Dialog;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -20,20 +20,17 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
-import androidx.preference.PreferenceManager;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationView;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-
-import io.xconn.cryptology.CryptoSign;
 import io.xconn.cryptology.KeyPair;
 import io.xconn.cryptology.SealedBox;
 import io.xconn.cryptology.SecretBox;
 import pk.codebase.navigationdrawer.utils.App;
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -46,20 +43,13 @@ public class MainActivity extends AppCompatActivity {
     private BottomNavigationView bottomNavigationView;
     private FragmentManager fragmentManager;
 
-    public static final String PREF_PUBLIC_KEY = "public_key";
-    public static final String PREF_PRIVATE_KEY = "private_key";
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Retrieve if dialog has been shown previously
-        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
-        boolean isDialogShown = sharedPreferences.getBoolean("isDialogShown", false);
-
-        // If dialog hasn't been shown previously, show it
-        if (!isDialogShown) {
+        // Check if the dialog has been shown previously using App.getPreferenceManager()
+        if (!App.getBoolean("isDialogShown")) {
             showDialog();
         }
 
@@ -125,56 +115,43 @@ public class MainActivity extends AppCompatActivity {
                     saveString("nonce", bytesToHex(nonce));
 
                     byte[] encryptedPrivateKey = SecretBox.box(nonce, keyPair.getPrivateKey(), convertTo32Bytes(enteredPassword));
-
-
                     saveString(PREF_PRIVATE_KEY, bytesToHex(encryptedPrivateKey));
+
+                    // Set the flag to indicate the dialog has been shown
+                    saveBoolean("isDialogShown", true);
+
                     // Dismiss the dialog
                     dialog.dismiss();
 
-                    saveBoolean("isDialogShown", true);
-
-                    // Retrieve password
-                    String savedPassword = enteredPassword; // Use the entered password directly
-                    System.out.println("------------- Saved Password: " + savedPassword);
-                    Log.d("password", "My Password " + savedPassword);
+                    // Log the entered password
+                    Log.d("password", "My Password " + enteredPassword);
                 }
             }
-
         });
-
 
         dialog.show();
     }
 
-    // Method to save keys in SharedPreferences
-    private void saveKeysInPreferences(String publicKey, String privateKey) {
-        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putString(PREF_PUBLIC_KEY, publicKey);
-        editor.putString(PREF_PRIVATE_KEY, privateKey);
-        editor.apply();
+    public static byte[] convertTo32Bytes(String input) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(input.getBytes());
+
+            // If the hash is less than 32 bytes, we pad it with zeros
+            byte[] result = new byte[32];
+            if (hash.length >= 32) {
+                System.arraycopy(hash, 0, result, 0, 32);
+            } else {
+                System.arraycopy(hash, 0, result, 0, hash.length);
+            }
+
+            return result;
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
-
-        public static byte[] convertTo32Bytes(String input) {
-            try {
-                MessageDigest digest = MessageDigest.getInstance("SHA-256");
-                byte[] hash = digest.digest(input.getBytes());
-
-                // If the hash is less than 32 bytes, we pad it with zeros
-                byte[] result = new byte[32];
-                if (hash.length >= 32) {
-                    System.arraycopy(hash, 0, result, 0, 32);
-                } else {
-                    System.arraycopy(hash, 0, result, 0, hash.length);
-                }
-
-                return result;
-            } catch (NoSuchAlgorithmException e) {
-                e.printStackTrace();
-                return null;
-            }
-        }
     public static String bytesToHex(byte[] bytes) {
         StringBuilder sb = new StringBuilder();
         for (byte b : bytes) {
