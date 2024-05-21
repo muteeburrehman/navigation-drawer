@@ -1,4 +1,4 @@
-package pk.codebase.navigationdrawer.utils;
+package pk.codebase.navigationdrawer.util;
 
 import android.app.Application;
 import android.content.Context;

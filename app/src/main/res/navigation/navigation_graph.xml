@@ -5,7 +5,7 @@
 
     <fragment
         android:id="@+id/cameraFragment"
-        android:name="pk.codebase.navigationdrawer.CameraFragment"
+        android:name="pk.codebase.navigationdrawer.fragment.CameraFragment"
         android:label="CameraFragment">
         <action
             android:id="@+id/action_cameraFragment_to_galleryFragment"
@@ -14,6 +14,6 @@
 
     <fragment
         android:id="@+id/galleryFragment"
-        android:name="pk.codebase.navigationdrawer.GalleryFragment"
+        android:name="pk.codebase.navigationdrawer.fragment.GalleryFragment"
         android:label="GalleryFragment" />
 </navigation>

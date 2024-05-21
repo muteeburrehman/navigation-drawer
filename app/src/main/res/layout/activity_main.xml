@@ -37,13 +37,6 @@
 
     </LinearLayout>
 
-    <com.google.android.material.navigation.NavigationView
-        android:layout_width="wrap_content"
-        android:layout_gravity="start"
-        app:menu="@menu/menu_bar"
-        android:id="@+id/nav"
 
-        app:headerLayout="@layout/header"
-        android:layout_height="match_parent"/>
 
 </androidx.drawerlayout.widget.DrawerLayout>
