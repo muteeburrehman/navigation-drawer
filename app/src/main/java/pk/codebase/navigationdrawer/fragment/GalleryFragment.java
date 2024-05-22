@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -193,8 +194,7 @@ public class GalleryFragment extends Fragment {
             ImageView imageView;
         }
 
-        private void decodeAndDecryptImageDataAsync(final File imageFile, final ImageView imageView)
-        {
+        private void decodeAndDecryptImageDataAsync(final File imageFile, final ImageView imageView) {
             executorService.execute(() -> {
                 Bitmap bitmap = decryptImageData(imageFile);
                 mainHandler.post(() -> {
@@ -208,25 +208,30 @@ public class GalleryFragment extends Fragment {
         }
 
         private Bitmap decryptImageData(File imageFile) {
-            try {
-                FileInputStream fis = new FileInputStream(imageFile);
+            try (FileInputStream fis = new FileInputStream(imageFile)) {
                 byte[] encryptedData = new byte[(int) imageFile.length()];
-                fis.read(encryptedData);
-                fis.close();
+                int bytesRead = fis.read(encryptedData);
+                if (bytesRead == -1) {
+                    // Handle case where no bytes were read
+                    Log.e("FileInputStream", "No bytes were read from the file");
+                    return null;
+                }
 
                 byte[] decryptedData = SealedBox.sealOpen(encryptedData, privateKey);
 
                 return BitmapFactory.decodeByteArray(decryptedData, 0, decryptedData.length);
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (IOException e) {
+                Log.e("IOException", "Error reading or decrypting image data", e);
                 return null;
             }
         }
-    }
 
+
+    }
     @Override
     public void onDestroy() {
         super.onDestroy();
         executorService.shutdown();
     }
+
 }

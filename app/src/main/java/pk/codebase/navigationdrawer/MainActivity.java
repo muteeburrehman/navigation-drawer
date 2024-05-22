@@ -51,7 +51,7 @@ public class MainActivity extends AppCompatActivity {
         Fragment cameraFragment = new CameraFragment();
         fragmentManager.beginTransaction().replace(R.id.frameLayout, cameraFragment).commit();
 
-        bottomNavigationView.setOnNavigationItemSelectedListener(item -> {
+        bottomNavigationView.setOnItemSelectedListener(item -> {
             Fragment fragment = null;
             if (item.getItemId() == R.id.menu_camera) {
                 fragment = new CameraFragment();

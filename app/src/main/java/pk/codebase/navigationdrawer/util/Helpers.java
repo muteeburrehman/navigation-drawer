@@ -1,6 +1,7 @@
 package pk.codebase.navigationdrawer.util;
 
 import android.app.Application;
+import android.util.Log;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -34,15 +35,11 @@ public class Helpers extends Application {
 
             // If the hash is less than 32 bytes, we pad it with zeros
             byte[] result = new byte[32];
-            if (hash.length >= 32) {
-                System.arraycopy(hash, 0, result, 0, 32);
-            } else {
-                System.arraycopy(hash, 0, result, 0, hash.length);
-            }
+            System.arraycopy(hash, 0, result, 0, Math.min(hash.length, 32));
 
             return result;
         } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
+             Log.w("IOException", e.getMessage(), e);
             return null;
         }
     }

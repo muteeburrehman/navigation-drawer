@@ -1,10 +1,12 @@
 package pk.codebase.navigationdrawer.util;
 
+import android.annotation.SuppressLint;
 import android.app.Application;
 import android.content.Context;
 import android.content.SharedPreferences;
 
 public class App extends Application {
+    @SuppressLint("StaticFieldLeak")
     public static Context context;
 
     public static final String PREF_PUBLIC_KEY = "public_key";
@@ -47,9 +49,5 @@ public class App extends Application {
     }
 
 
-    public static void removeKey(String key) {
-        SharedPreferences sharedPreferences = getPreferenceManager();
-        sharedPreferences.edit().remove(key).apply();
-    }
 
 }
